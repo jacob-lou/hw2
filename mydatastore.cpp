@@ -1,20 +1,23 @@
 #include "mydatastore.h"
 #include "util.h"
-#include <algorithm>
 #include <iomanip>
 
 MyDataStore::MyDataStore() {}
 
 MyDataStore::~MyDataStore() {
-  for(auto p:products_) delete p;
-  for (auto& kv : users_) delete kv.second;
+  for(std::vector<Product*>::iterator it = products_.begin(); it != products_.end(); ++it) {
+      delete *it;
+  }
+  for (std::map<std::string, User*>::iterator it = users_.begin(); it != users_.end(); ++it) {
+      delete it->second;
+  }
 }
 
 void MyDataStore::addProduct(Product* p){
   products_.push_back(p);
   std::set<std::string>keys = p->keywords();
-  for(auto const& k : keys){
-    keywordMap_[convToLower(k)].insert(p);
+  for(std::set<std::string>::const_iterator it = keys.begin(); it != keys.end(); ++it) {
+    keywordMap_[convToLower(*it)].insert(p);
   }
 }
 
@@ -31,15 +34,16 @@ std::vector<Product*> MyDataStore::search(std::vector<std::string>& terms, int t
   if(terms.empty()) return results;
 
   std::vector<std::string> lowerTerms;
-  for (auto &t : terms) {
-    lowerTerms.push_back(convToLower(t));
+  for (std::vector<std::string>::iterator it = terms.begin(); it != terms.end(); ++it) {
+    lowerTerms.push_back(convToLower(*it));
   } 
+  
   std::set<Product*> accum;
   bool first = true;
-  for(const auto &term: lowerTerms){
-    auto it = keywordMap_.find(term);
+  for(std::vector<std::string>::iterator termIt = lowerTerms.begin(); termIt != lowerTerms.end(); ++termIt) {
+    std::map<std::string, std::set<Product*>>::iterator mapIt = keywordMap_.find(*termIt);
     std::set<Product*> termSet;
-    if(it != keywordMap_.end()) termSet = it->second;
+    if(mapIt != keywordMap_.end()) termSet = mapIt->second;
     if(first){
       accum = termSet;
       first = false;
@@ -51,7 +55,9 @@ std::vector<Product*> MyDataStore::search(std::vector<std::string>& terms, int t
       }
     }
   }
-  for (Product* p : accum) results.push_back(p);
+  for (std::set<Product*>::iterator it = accum.begin(); it != accum.end(); ++it) {
+      results.push_back(*it);
+  }  
   return results;
 
 }
@@ -64,15 +70,15 @@ for (Product* p : products_) {
   }
   ofile << "</products>\n";
   ofile << "<users>\n";
-  for (auto& kv : users_) {
-      kv.second->dump(ofile);
+  for (std::map<std::string, User*>::iterator it = users_.begin(); it != users_.end(); ++it) {
+    it->second->dump(ofile);
   }
   ofile << "</users>\n";
 }
 
 bool MyDataStore::addToCart(const std::string& username, Product* p) {
   std::string lname = convToLower(username);
-  auto it = users_.find(lname);
+  std::map<std::string, User*>::iterator it = users_.find(lname);
   if (it == users_.end()) {
       return false; // invalid user
   }
@@ -85,13 +91,13 @@ bool MyDataStore::addToCart(const std::string& username, Product* p) {
 
 void MyDataStore::viewCart(const std::string& username) const {
     std::string lname = convToLower(username);
-    auto uit = users_.find(lname);
+    std::map<std::string, User*>::const_iterator uit = users_.find(lname);
     if (uit == users_.end()) {
         std::cout << "Invalid username" << std::endl;
         return;
     }
     
-    auto cit = carts_.find(lname);
+    std::map<std::string, std::vector<Product*>>::const_iterator cit = carts_.find(lname);
     if (cit == carts_.end() || cit->second.empty()) {
         std::cout << "Cart is empty" << std::endl;
         return;
@@ -108,13 +114,13 @@ void MyDataStore::viewCart(const std::string& username) const {
 
 void MyDataStore::buyCart(const std::string& username){
   std::string lname = convToLower(username);
-  auto uit = users_.find(lname);
+  std::map<std::string, User*>::iterator uit = users_.find(lname);
   if(uit==users_.end()){
     std::cout << "Invalid username"<<std::endl;
     return;
   }
   User* user = uit->second;
-  auto &cart = carts_[lname];
+  std::vector<Product*>& cart = carts_[lname];
   size_t i = 0;
   while(i<cart.size()){
     Product* p = cart[i];
